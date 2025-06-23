@@ -5,6 +5,7 @@ import { LoginModule } from './login/login.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
 import { TypeormLoggerMiddleware } from './middlewares';
+import { NoticeModule } from './domain/support/notice/notice.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { TypeormLoggerMiddleware } from './middlewares';
       charset: 'utf8mb4',
       autoLoadEntities: true,
     }),
+    NoticeModule,
   ],
   controllers: [AppController],
   providers: [AppService],
