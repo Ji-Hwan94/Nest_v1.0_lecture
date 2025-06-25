@@ -7,7 +7,11 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { TbNotice } from 'src/entities/TbNotice';
 import { Repository } from 'typeorm';
 import { FileDto } from 'src/domain/common/dto/common.file.dto';
-import { ReqNoticeSearchDto, ReqNoticeTextDto } from './dto/notice.request.dto';
+import {
+  ReqNoticeSearchDto,
+  ReqNoticeTextDto,
+  ReqNoticeUpdateDto,
+} from './dto/notice.request.dto';
 
 @Injectable()
 export class NoticeService {
@@ -65,8 +69,7 @@ export class NoticeService {
       return await queryBuilder.getMany();
     } catch (error) {
       throw new InternalServerErrorException(
-        '공지사항 조회 중 오류가 발생했습니다.',
-        error,
+        `공지사항 조회 중 오류가 발생했습니다. ${error}`,
       );
     }
   }
@@ -101,8 +104,7 @@ export class NoticeService {
       return await queryBuilder.getCount();
     } catch (error) {
       throw new InternalServerErrorException(
-        '공지사항 조회 중 오류가 발생했습니다.',
-        error,
+        `공지사항 조회 중 오류가 발생했습니다. ${error}`,
       );
     }
   }
@@ -132,21 +134,74 @@ export class NoticeService {
       return await queryBuilder;
     } catch (error) {
       throw new InternalServerErrorException(
-        '공지사항 등록 중 오류가 발생했습니다.',
-        error,
+        `공지사항 등록 중 오류가 발생했습니다. ${error}`,
       );
     }
   }
 
-  findOne(id: number) {
+  async findOne(id: number) {
+    try {
+      const getDetail = await this.noticeRepository
+        .createQueryBuilder()
+        .select([
+          'TbNotice.noticeId',
+          'TbNotice.loginId',
+          'TbNotice.noticeTitle',
+          'TbNotice.noticeContent',
+          'TbNotice.noticeRegDate',
+          'TbNotice.fileName',
+          'TbNotice.fileExt',
+          'TbNotice.fileSize',
+          'TbNotice.physicalPath',
+          'TbNotice.logicalPath',
+        ])
+        .where('TbNotice.noticeId = :id', { id: id })
+        .getOne();
+
+      return getDetail;
+    } catch (error) {
+      throw new InternalServerErrorException(
+        `공지사항 단건 조회 중 오류가 발생했습니다. ${error}`,
+      );
+    }
+
     return `This action returns a #${id} notice`;
   }
 
-  update(id: number, updateNoticeDto) {
-    return `This action updates a #${id} notice`;
+  async update(updateNoticeDto: ReqNoticeUpdateDto) {
+    try {
+      const queryBuilder = await this.noticeRepository
+        .createQueryBuilder()
+        .update(TbNotice)
+        .set({
+          noticeTitle: updateNoticeDto.noticeTitle,
+          noticeContent: updateNoticeDto.noticeContent,
+        })
+        .where('noticeId = :id', { id: updateNoticeDto.noticeId })
+        .execute();
+
+      return queryBuilder;
+    } catch (error) {
+      throw new InternalServerErrorException(
+        `공지사항 수정 중 오류가 발생했습니다. ${error}`,
+      );
+    }
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} notice`;
+  async remove(id: number) {
+    try {
+      const queryBuilder = await this.noticeRepository
+        .createQueryBuilder()
+        .delete()
+        .from(TbNotice)
+        .where('noticeId = :id', { id })
+        .execute();
+
+      return queryBuilder;
+    } catch (error) {
+      throw new InternalServerErrorException(
+        `공지사항 삭제 중 오류가 발생했습니다. ${error}`,
+      );
+    }
   }
 }

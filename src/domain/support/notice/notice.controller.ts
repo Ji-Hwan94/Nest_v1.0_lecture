@@ -15,10 +15,13 @@ import {
   InternalServerErrorException,
 } from '@nestjs/common';
 import { NoticeService } from './notice.service';
-import { ReqNoticeSearchDto, ReqNoticeTextDto } from './dto/notice.request.dto';
+import {
+  ReqNoticeSearchDto,
+  ReqNoticeTextDto,
+  ReqNoticeUpdateDto,
+} from './dto/notice.request.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { FileDto } from 'src/domain/common/dto/common.file.dto';
-import { Request } from 'express';
 
 @Controller('/support/')
 export class NoticeController {
@@ -34,7 +37,7 @@ export class NoticeController {
   // Swagger와 같은 도구를 사용할 때 DTO를 기반으로 자동으로 API 문서가 생성됨
   // 프론트엔드 개발자가 필요한 파라미터를 쉽게 파악 가능
   @Get('noticeList.do')
-  async getNoticeList(@Query() searchParam: ReqNoticeSearchDto) {
+  async findAll(@Query() searchParam: ReqNoticeSearchDto) {
     this.logger.log(`param ======= ${JSON.stringify(searchParam)}`);
     const list = await this.noticeService.getNoticeList(searchParam);
     const count = await this.noticeService.getNoticeCount(searchParam);
@@ -67,18 +70,39 @@ export class NoticeController {
     }
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.noticeService.findOne(+id);
+  @Get('noticeDetail.do')
+  async findOne(@Query('id') id: number) {
+    this.logger.log(`id ============== ${id}`);
+
+    const detail = await this.noticeService.findOne(id);
+
+    return detail;
   }
 
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateNoticeDto) {
-    return this.noticeService.update(+id, updateNoticeDto);
+  @Patch('noticeUpdate.do')
+  async update(@Body() updateNoticeDto: ReqNoticeUpdateDto) {
+    this.logger.log(`update ============== ${JSON.stringify(updateNoticeDto)}`);
+
+    try {
+      await this.noticeService.update(updateNoticeDto);
+
+      return { result: 'SUCCESS' };
+    } catch (error) {
+      this.logger.error('공지사항 등록 실패:', error);
+      throw new InternalServerErrorException(
+        '공지사항 등록 중 오류가 발생했습니다.',
+      );
+    }
   }
 
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.noticeService.remove(+id);
+  @Delete('noticeDelete.do')
+  async remove(@Query('id') id: number) {
+    this.logger.log(`delete ============== ${id}`);
+
+    await this.noticeService.remove(id);
+
+    return { result: 'SUCCESS' };
+
+    // return this.noticeService.remove(+id);
   }
 }
