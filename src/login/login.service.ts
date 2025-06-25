@@ -17,10 +17,7 @@ export class LoginService {
 
   private logger = new Logger('HTTP');
 
-  async checkLogin(
-    loginInfo: LoginRequestDto,
-    @Session() session: Record<string, any>,
-  ) {
+  async checkLogin(loginInfo: LoginRequestDto) {
     const user = await this.usersRepository.findOne({
       where: {
         loginId: loginInfo.id,
@@ -46,12 +43,6 @@ export class LoginService {
           };
         }),
       );
-
-      // 세션 데이터 저장
-      session.loginId = user.loginId;
-      session.userNm = user.name;
-      session.usrMnuAtrt = menuWithChildren;
-      session.userType = user.userType;
 
       return {
         user,

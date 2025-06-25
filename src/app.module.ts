@@ -6,7 +6,6 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
 import { TypeormLoggerMiddleware } from './middlewares';
 import { NoticeModule } from './domain/support/notice/notice.module';
-
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
