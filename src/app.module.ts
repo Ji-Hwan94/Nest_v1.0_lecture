@@ -1,11 +1,15 @@
-import { Module } from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { LoginModule } from './login/login.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
-import { TypeormLoggerMiddleware } from './middlewares';
+import {
+  TypeormLoggerMiddleware,
+  SessionRefreshMiddleware,
+} from './middlewares';
 import { NoticeModule } from './domain/support/notice/notice.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -29,4 +33,8 @@ import { NoticeModule } from './domain/support/notice/notice.module';
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(SessionRefreshMiddleware).forRoutes('*'); // 모든 라우트에 적용
+  }
+}

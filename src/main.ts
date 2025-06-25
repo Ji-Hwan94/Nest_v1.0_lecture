@@ -3,33 +3,51 @@ import { AppModule } from './app.module';
 import * as session from 'express-session';
 import * as passport from 'passport';
 
+// HMR(Hot Module Replacement) 지원을 위한 선언
+// 개발 중 코드 변경 시 서버를 완전히 재시작하지 않고도 변경사항을 반영
+// 세션 메모리도 유지됨
+
 declare const module: any;
 
 async function bootstrap() {
+  // 세션 암호화 키가 없으면 서버 실행 중단
   if (!process.env.SESSION_KEY) {
     throw new Error('SESSION_KEY 환경변수가 설정되지 않았습니다!');
   }
 
+  // NestJS 앱 생성
   const app = await NestFactory.create(AppModule);
+
+  // express-session 미들웨어 등록
+  // 세션 쿠키는 브라우저에 세션ID만 저장, 실제 정보는 서버 메모리에 저장
   app.use(
     session({
-      secret: process.env.SESSION_KEY,
-      resave: false,
-      saveUninitialized: false,
+      secret: process.env.SESSION_KEY, // 세션 암호화 키
+      resave: true, // 세션 데이터가 바뀌지 않아도 항상 저장(세션 만료 갱신)
+      saveUninitialized: false, // 로그인 등 세션에 값이 있을 때만 저장
+      rolling: true, // 사용자가 요청할 때마다 만료 시간 자동 연장
+      unset: 'destroy', // 로그아웃 시 세션 완전 삭제
       cookie: {
-        maxAge: 1000 * 60 * 60 * 24,
-        httpOnly: false,
-        sameSite: 'lax',
+        maxAge: 1000 * 60 * 60 * 24 * 7, // 7일(밀리초 단위) - 세션 쿠키 만료 시간
+        httpOnly: true, // JS로 쿠키 접근 불가(XSS 방지)
+        secure: process.env.NODE_ENV === 'production', // 배포 환경에서만 HTTPS 쿠키
+        sameSite: 'lax', // CSRF 방지 기본값
+        path: '/', // 모든 경로에서 쿠키 사용
       },
+      name: 'happy-job-session', // 세션 쿠키 이름(기본 connect.sid 대신)
     }),
   );
 
+  // passport 초기화 및 세션 연동
+  // passport가 세션에서 사용자 정보(req.user)를 자동으로 꺼내줌
   app.use(passport.initialize());
   app.use(passport.session());
+
+  // 서버 실행
   await app.listen(process.env.PORT ?? 3000);
 
   // hot reloading 설정
-  // 서버 해놓고 껐다 켰다하는거 방지하는거임
+  // 서버를 완전히 재시작하지 않고 코드 변경 반영(세션 메모리 유지)
   if (module.hot) {
     module.hot.accept();
     module.hot.dispose(() => app.close());
