@@ -4,15 +4,32 @@ import { AppService } from './app.service';
 import { LoginModule } from './login/login.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
+import { ServeStaticModule } from '@nestjs/serve-static';
+import { join } from 'path';
 import {
   TypeormLoggerMiddleware,
   SessionRefreshMiddleware,
 } from './middlewares';
 import { NoticeModule } from './domain/support/notice/notice.module';
+import { FileModule } from './common/file/file.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    // 정적 파일 서빙 설정 - V:\FileRepository를 /serverfile로 매핑
+    ServeStaticModule.forRoot({
+      rootPath: process.env.FILEUPLOAD_ROOT_PATH || 'V:\\FileRepository', // 환경변수로 설정 가능
+      serveRoot: process.env.FILEUPLOAD_VIRTUAL_ROOT_PATH || '/serverfile', // URL 경로
+      serveStaticOptions: {
+        index: false, // 디렉토리 인덱스 비활성화
+        dotfiles: 'deny', // 숨김 파일 접근 거부
+        setHeaders: (res, path) => {
+          // 파일 다운로드 시 적절한 헤더 설정
+          res.set('X-Content-Type-Options', 'nosniff');
+          res.set('X-Frame-Options', 'DENY');
+        },
+      },
+    }),
     LoginModule,
     TypeOrmModule.forRoot({
       type: 'mysql',
@@ -29,6 +46,7 @@ import { NoticeModule } from './domain/support/notice/notice.module';
       autoLoadEntities: true,
     }),
     NoticeModule,
+    FileModule,
   ],
   controllers: [AppController],
   providers: [AppService],

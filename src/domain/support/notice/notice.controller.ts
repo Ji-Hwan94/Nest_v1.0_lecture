@@ -46,7 +46,15 @@ export class NoticeController {
   }
 
   @Post('noticeSave.do')
-  @UseInterceptors(FileInterceptor('file')) // FormData에서 'file'이라는 이름의 필드를 찾아서 파일 데이터를 추출
+  @UseInterceptors(
+    // 1. 클라이언트 → 파일 업로드
+    // 2. Multer → 메모리에 임시 저장 (file.buffer)
+    // 3. 우리 코드 → 한글 파일명 복원 + 원하는 위치에 저장
+    // 4. 메모리 → 자동 정리 (가비지 컬렉션)
+    FileInterceptor('file', {
+      storage: undefined, // memory storage 사용
+    }),
+  )
   async create(
     @Body() insertParam: ReqNoticeTextDto,
     @UploadedFile() file: FileDto,
@@ -80,11 +88,19 @@ export class NoticeController {
   }
 
   @Patch('noticeUpdate.do')
-  async update(@Body() updateNoticeDto: ReqNoticeUpdateDto) {
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: undefined, // memory storage 사용
+    }),
+  )
+  async update(
+    @Body() updateNoticeDto: ReqNoticeUpdateDto,
+    @UploadedFile() file: FileDto,
+  ) {
     this.logger.log(`update ============== ${JSON.stringify(updateNoticeDto)}`);
 
     try {
-      await this.noticeService.update(updateNoticeDto);
+      await this.noticeService.update(updateNoticeDto, file);
 
       return { result: 'SUCCESS' };
     } catch (error) {

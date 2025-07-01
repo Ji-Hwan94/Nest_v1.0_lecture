@@ -13,6 +13,6 @@ export class ReqNoticeTextDto {
 
 export class ReqNoticeUpdateDto {
   noticeId: number;
-  noticeTitle: string;
-  noticeContent: string;
+  title: string;
+  content: string;
 }

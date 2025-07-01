@@ -1,6 +1,7 @@
 import {
   Injectable,
   InternalServerErrorException,
+  Logger,
   Param,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -12,13 +13,17 @@ import {
   ReqNoticeTextDto,
   ReqNoticeUpdateDto,
 } from './dto/notice.request.dto';
+import { UploadService, UploadConfig } from 'src/common/upload/upload.service';
 
 @Injectable()
 export class NoticeService {
   constructor(
     @InjectRepository(TbNotice)
     private noticeRepository: Repository<TbNotice>,
+    private uploadService: UploadService,
   ) {}
+
+  private logger = new Logger('HTTP');
 
   // 메서드에 async를 사용하는 것이 좋습니다. 그 이유는 다음과 같습니다:
   // 1. 일관성
@@ -118,16 +123,43 @@ export class NoticeService {
 
       const nextId = Number(getMaxId.maxId) + 1;
 
+      // 파일 업로드 설정
+      const uploadConfig: UploadConfig = {
+        subDir: 'notices',
+        allowedTypes: [
+          'image/jpeg',
+          'image/png',
+          'image/gif',
+          'application/pdf',
+          'text/plain',
+        ],
+        maxSize: 10 * 1024 * 1024, // 10MB
+        fileNamePrefix: 'notice_',
+      };
+
+      // 파일 업로드 처리 (공통 서비스 사용)
+      let uploadResult: any = null;
+      if (file) {
+        uploadResult = await this.uploadService.uploadFile(file, uploadConfig);
+      }
+
+      // 공지사항 저장
       const queryBuilder = this.noticeRepository
         .createQueryBuilder()
         .insert()
         .into(TbNotice)
         .values({
           noticeId: nextId,
-          loginId,
+          loginId: 'admin',
           noticeTitle: text.title.trim(),
           noticeContent: text.content.trim(),
           noticeRegDate: () => 'NOW()',
+          // 파일 정보 저장 (DB 컬럼명에 맞게)
+          fileName: uploadResult?.originalName || null,
+          fileExt: uploadResult?.fileExt || null,
+          fileSize: uploadResult?.fileSize || null,
+          physicalPath: uploadResult?.physicalPath || null,
+          logicalPath: uploadResult?.logicalPath || null,
         })
         .execute();
 
@@ -164,20 +196,75 @@ export class NoticeService {
         `공지사항 단건 조회 중 오류가 발생했습니다. ${error}`,
       );
     }
-
-    return `This action returns a #${id} notice`;
   }
 
-  async update(updateNoticeDto: ReqNoticeUpdateDto) {
+  async update(updateNoticeDto: ReqNoticeUpdateDto, file: FileDto) {
     try {
+      // 기존 공지사항 정보 조회 (파일 정보 포함)
+      const existingNotice = await this.noticeRepository
+        .createQueryBuilder()
+        .select(['TbNotice.physicalPath'])
+        .where('TbNotice.notice_id = :id', { id: updateNoticeDto.noticeId })
+        .getOne();
+
+      // 변경할 기존 파일이 있으면 삭제
+      if (existingNotice?.physicalPath) {
+        this.logger.log('기존 파일 있음');
+        try {
+          const fs = await import('fs/promises');
+          await fs.unlink(existingNotice.physicalPath);
+          this.logger.log(
+            `기존 파일 삭제 완료: ${existingNotice.physicalPath}`,
+          );
+        } catch (error) {
+          this.logger.warn(
+            `기존 파일 삭제 실패: ${existingNotice.physicalPath}`,
+            error.message,
+          );
+          // 파일 삭제 실패해도 계속 진행
+        }
+      }
+
+      // 파일 업로드 설정
+      const uploadConfig: UploadConfig = {
+        subDir: 'notices',
+        allowedTypes: [
+          'image/jpeg',
+          'image/png',
+          'image/gif',
+          'application/pdf',
+          'text/plain',
+        ],
+        maxSize: 10 * 1024 * 1024, // 10MB
+        fileNamePrefix: 'notice_',
+      };
+
+      // 파일 업로드 처리 (공통 서비스 사용)
+      let uploadResult: any = null;
+      if (file) {
+        this.logger.log('파일 있음');
+        uploadResult = await this.uploadService.uploadFile(file, uploadConfig);
+      }
+
+      console.log('uploadResult ============== ', uploadResult);
+
       const queryBuilder = await this.noticeRepository
         .createQueryBuilder()
         .update(TbNotice)
         .set({
-          noticeTitle: updateNoticeDto.noticeTitle,
-          noticeContent: updateNoticeDto.noticeContent,
+          noticeTitle: updateNoticeDto.title,
+          noticeContent: updateNoticeDto.content,
+          noticeUpdateDate: () => 'NOW()',
+          // uploadResult이 존재할 때만 파일 관련 필드 업데이트
+          ...(uploadResult && {
+            fileName: uploadResult.originalName,
+            fileExt: uploadResult.fileExt,
+            fileSize: uploadResult.fileSize,
+            physicalPath: uploadResult.physicalPath,
+            logicalPath: uploadResult.logicalPath,
+          }),
         })
-        .where('noticeId = :id', { id: updateNoticeDto.noticeId })
+        .where('notice_id = :id', { id: updateNoticeDto.noticeId })
         .execute();
 
       return queryBuilder;
@@ -190,6 +277,31 @@ export class NoticeService {
 
   async remove(id: number) {
     try {
+      // 기존 공지사항 정보 조회 (파일 정보 포함)
+      const existingNotice = await this.noticeRepository
+        .createQueryBuilder()
+        .select(['TbNotice.physicalPath'])
+        .where('TbNotice.notice_id = :id', { id })
+        .getOne();
+      console.log('existingNotice ============== ', existingNotice);
+      // 변경할 기존 파일이 있으면 삭제
+      if (existingNotice?.physicalPath) {
+        this.logger.log('기존 파일 있음');
+        try {
+          const fs = await import('fs/promises');
+          await fs.unlink(existingNotice.physicalPath);
+          this.logger.log(
+            `기존 파일 삭제 완료: ${existingNotice.physicalPath}`,
+          );
+        } catch (error) {
+          this.logger.warn(
+            `기존 파일 삭제 실패: ${existingNotice.physicalPath}`,
+            error.message,
+          );
+          // 파일 삭제 실패해도 계속 진행
+        }
+      }
+
       const queryBuilder = await this.noticeRepository
         .createQueryBuilder()
         .delete()

@@ -2,12 +2,16 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import * as session from 'express-session';
 import * as passport from 'passport';
+import * as dotenv from 'dotenv';
 
 // HMR(Hot Module Replacement) 지원을 위한 선언
 // 개발 중 코드 변경 시 서버를 완전히 재시작하지 않고도 변경사항을 반영
 // 세션 메모리도 유지됨
 
 declare const module: any;
+
+dotenv.config();
+dotenv.config({ path: '.env.upload' });
 
 async function bootstrap() {
   // 세션 암호화 키가 없으면 서버 실행 중단

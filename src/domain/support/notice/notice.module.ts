@@ -3,10 +3,16 @@ import { NoticeService } from './notice.service';
 import { NoticeController } from './notice.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { TbNotice } from 'src/entities/TbNotice';
+import { UploadModule } from 'src/common/upload/upload.module';
+import { FileModule } from 'src/common/file/file.module';
 
 @Module({
   // imports: 다른 모듈을 가져와서 사용할 때 (예: TypeORM, 다른 기능 모듈 등)
-  imports: [TypeOrmModule.forFeature([TbNotice])],
+  imports: [
+    TypeOrmModule.forFeature([TbNotice]),
+    UploadModule, // 공통 업로드 모듈 추가
+    FileModule,
+  ],
 
   // controllers: 요청을 받고 응답을 반환하는 API 엔드포인트 정의
   controllers: [NoticeController],
