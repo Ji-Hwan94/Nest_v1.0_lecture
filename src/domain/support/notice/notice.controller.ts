@@ -13,6 +13,8 @@ import {
   Req,
   UnauthorizedException,
   InternalServerErrorException,
+  Res,
+  Header,
 } from '@nestjs/common';
 import { NoticeService } from './notice.service';
 import {
@@ -118,7 +120,34 @@ export class NoticeController {
     await this.noticeService.remove(id);
 
     return { result: 'SUCCESS' };
+  }
 
-    // return this.noticeService.remove(+id);
+  @Get('downloadFile.do')
+  @Header('Content-Type', 'application/octet-stream') // 파일 다운로드 시 헤더 설정
+  async downloadFile(
+    @Query('id') id: number,
+    @Res({ passthrough: true }) res: any, // passthrough: true → 파일 다운로드 시 헤더 설정 가능
+  ) {
+    try {
+      this.logger.log(`파일 다운로드 요청: noticeId = ${id}`);
+
+      const result = await this.noticeService.downloadFile(id);
+
+      // 파일명을 UTF-8로 인코딩하여 한글 파일명 지원
+      const encodedFileName = encodeURIComponent(result.fileName || 'unknown');
+
+      // Content-Disposition 헤더 설정
+      // 파일 다운로드 시 파일명 인코딩
+      res.set({
+        'Content-Disposition': `attachment; filename*=UTF-8''${encodedFileName}`,
+      });
+
+      return result.file;
+    } catch (error) {
+      this.logger.error(`파일 다운로드 오류: ${error.message}`);
+      throw new InternalServerErrorException(
+        '파일 다운로드 중 오류가 발생했습니다.',
+      );
+    }
   }
 }

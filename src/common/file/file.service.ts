@@ -3,10 +3,12 @@ import {
   Logger,
   BadRequestException,
   NotFoundException,
+  StreamableFile,
 } from '@nestjs/common';
 import { promises as fs } from 'fs';
 import { join } from 'path';
 import * as path from 'path';
+import { createReadStream } from 'fs';
 
 @Injectable()
 export class FileService {
@@ -160,6 +162,44 @@ export class FileService {
       return true;
     } catch (error) {
       return false;
+    }
+  }
+
+  /**
+   * 파일 다운로드
+   * @param physicalPath 실제 파일 경로
+   * @param originalName 원본 파일명
+   * @returns StreamableFile
+   */
+  async downloadFile(
+    physicalPath: string,
+    originalName: string,
+  ): Promise<StreamableFile> {
+    try {
+      if (!physicalPath) {
+        throw new BadRequestException('파일 경로가 필요합니다.');
+      }
+
+      // 파일 존재 여부 확인
+      try {
+        // 파일 존재 여부 확인
+        await fs.access(physicalPath);
+      } catch (error) {
+        this.logger.error(`파일을 찾을 수 없습니다: ${physicalPath}`);
+        throw new NotFoundException('파일을 찾을 수 없습니다.');
+      }
+
+      // 파일 스트림 생성
+      // 파일 스트림이란? 경로에 있는 파일을 읽어와서 메모리에 저장하는 것 (Ram에 저장)
+      const fileStream = createReadStream(physicalPath);
+
+      this.logger.log(`파일 다운로드: ${physicalPath} -> ${originalName}`);
+
+      // StreamableFile? 파일 스트림을 바로 반환하는 객체
+      return new StreamableFile(fileStream);
+    } catch (error) {
+      this.logger.error(`파일 다운로드 오류: ${error.message}`);
+      throw error;
     }
   }
 }

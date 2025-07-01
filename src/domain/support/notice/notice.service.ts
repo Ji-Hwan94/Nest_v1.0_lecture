@@ -6,14 +6,16 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { TbNotice } from 'src/entities/TbNotice';
-import { Repository } from 'typeorm';
+import { DeleteResult, InsertResult, Repository, UpdateResult } from 'typeorm';
 import { FileDto } from 'src/domain/common/dto/common.file.dto';
 import {
   ReqNoticeSearchDto,
   ReqNoticeTextDto,
   ReqNoticeUpdateDto,
 } from './dto/notice.request.dto';
-import { UploadService, UploadConfig } from 'src/common/upload/upload.service';
+import { UploadService } from 'src/common/upload/upload.service';
+import { FileService } from 'src/common/file/file.service';
+import { FileDownloadResponse } from 'src/common/upload/upload.dto';
 
 @Injectable()
 export class NoticeService {
@@ -21,9 +23,12 @@ export class NoticeService {
     @InjectRepository(TbNotice)
     private noticeRepository: Repository<TbNotice>,
     private uploadService: UploadService,
+    private fileService: FileService,
   ) {}
 
   private logger = new Logger('HTTP');
+
+  private subDir = process.env.FILEUPLOAD_NOTICE_PATH || 'notices';
 
   // 메서드에 async를 사용하는 것이 좋습니다. 그 이유는 다음과 같습니다:
   // 1. 일관성
@@ -114,7 +119,11 @@ export class NoticeService {
     }
   }
 
-  async create(text: ReqNoticeTextDto, file: FileDto, loginId: string) {
+  async create(
+    text: ReqNoticeTextDto,
+    file: FileDto,
+    loginId: string,
+  ): Promise<InsertResult> {
     try {
       const getMaxId = await this.noticeRepository
         .createQueryBuilder()
@@ -123,24 +132,10 @@ export class NoticeService {
 
       const nextId = Number(getMaxId.maxId) + 1;
 
-      // 파일 업로드 설정
-      const uploadConfig: UploadConfig = {
-        subDir: 'notices',
-        allowedTypes: [
-          'image/jpeg',
-          'image/png',
-          'image/gif',
-          'application/pdf',
-          'text/plain',
-        ],
-        maxSize: 10 * 1024 * 1024, // 10MB
-        fileNamePrefix: 'notice_',
-      };
-
       // 파일 업로드 처리 (공통 서비스 사용)
       let uploadResult: any = null;
       if (file) {
-        uploadResult = await this.uploadService.uploadFile(file, uploadConfig);
+        uploadResult = await this.uploadService.uploadFile(file, this.subDir);
       }
 
       // 공지사항 저장
@@ -155,11 +150,13 @@ export class NoticeService {
           noticeContent: text.content.trim(),
           noticeRegDate: () => 'NOW()',
           // 파일 정보 저장 (DB 컬럼명에 맞게)
-          fileName: uploadResult?.originalName || null,
-          fileExt: uploadResult?.fileExt || null,
-          fileSize: uploadResult?.fileSize || null,
-          physicalPath: uploadResult?.physicalPath || null,
-          logicalPath: uploadResult?.logicalPath || null,
+          ...(uploadResult && {
+            fileName: uploadResult.originalName,
+            fileExt: uploadResult.fileExt,
+            fileSize: uploadResult.fileSize,
+            physicalPath: uploadResult.physicalPath,
+            logicalPath: uploadResult.logicalPath,
+          }),
         })
         .execute();
 
@@ -198,7 +195,10 @@ export class NoticeService {
     }
   }
 
-  async update(updateNoticeDto: ReqNoticeUpdateDto, file: FileDto) {
+  async update(
+    updateNoticeDto: ReqNoticeUpdateDto,
+    file: FileDto,
+  ): Promise<UpdateResult> {
     try {
       // 기존 공지사항 정보 조회 (파일 정보 포함)
       const existingNotice = await this.noticeRepository
@@ -225,25 +225,11 @@ export class NoticeService {
         }
       }
 
-      // 파일 업로드 설정
-      const uploadConfig: UploadConfig = {
-        subDir: 'notices',
-        allowedTypes: [
-          'image/jpeg',
-          'image/png',
-          'image/gif',
-          'application/pdf',
-          'text/plain',
-        ],
-        maxSize: 10 * 1024 * 1024, // 10MB
-        fileNamePrefix: 'notice_',
-      };
-
       // 파일 업로드 처리 (공통 서비스 사용)
       let uploadResult: any = null;
       if (file) {
         this.logger.log('파일 있음');
-        uploadResult = await this.uploadService.uploadFile(file, uploadConfig);
+        uploadResult = await this.uploadService.uploadFile(file, this.subDir);
       }
 
       console.log('uploadResult ============== ', uploadResult);
@@ -275,7 +261,7 @@ export class NoticeService {
     }
   }
 
-  async remove(id: number) {
+  async remove(id: number): Promise<DeleteResult> {
     try {
       // 기존 공지사항 정보 조회 (파일 정보 포함)
       const existingNotice = await this.noticeRepository
@@ -313,6 +299,39 @@ export class NoticeService {
     } catch (error) {
       throw new InternalServerErrorException(
         `공지사항 삭제 중 오류가 발생했습니다. ${error}`,
+      );
+    }
+  }
+
+  async downloadFile(id: number): Promise<FileDownloadResponse> {
+    try {
+      const notice = await this.noticeRepository
+        .createQueryBuilder()
+        .select(['TbNotice.physicalPath', 'TbNotice.fileName'])
+        .where('TbNotice.notice_id = :id', { id })
+        .getOne();
+
+      if (!notice) {
+        throw new InternalServerErrorException('공지사항을 찾을 수 없습니다.');
+      }
+
+      if (!notice.physicalPath) {
+        throw new InternalServerErrorException('첨부된 파일이 없습니다.');
+      }
+
+      // 파일 다운로드 처리
+      const streamableFile = await this.fileService.downloadFile(
+        notice.physicalPath!,
+        notice.fileName || 'unknown',
+      );
+
+      return {
+        file: streamableFile,
+        fileName: notice.fileName || 'unknown',
+      };
+    } catch (error) {
+      throw new InternalServerErrorException(
+        `파일 다운로드 중 오류가 발생했습니다. ${error}`,
       );
     }
   }
