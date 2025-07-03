@@ -8,7 +8,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { TbNotice } from 'src/entities/TbNotice';
 import { DeleteResult, InsertResult, Repository, UpdateResult } from 'typeorm';
-import { FileDto } from 'src/domain/common/dto/common.file.dto';
+import { FileDto } from 'src/common/file/file.dto';
 import {
   ReqNoticeSearchDto,
   ReqNoticeTextDto,

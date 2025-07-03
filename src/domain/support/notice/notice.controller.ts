@@ -23,7 +23,7 @@ import {
   ReqNoticeUpdateDto,
 } from './dto/notice.request.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { FileDto } from 'src/domain/common/dto/common.file.dto';
+import { FileDto } from 'src/common/file/file.dto';
 
 interface AuthRequest extends Request {
   user?: any;

@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { FileDto } from 'src/domain/common/dto/common.file.dto';
+import { FileDto } from 'src/common/file/file.dto';
 import * as fs from 'fs';
 import * as path from 'path';
 import { FileInfoResult, UploadResult } from './upload.dto';
