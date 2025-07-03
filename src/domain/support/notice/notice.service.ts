@@ -1,3 +1,4 @@
+import { TbUserinfo } from 'src/entities/TbUserinfo';
 import {
   Injectable,
   InternalServerErrorException,
@@ -40,43 +41,44 @@ export class NoticeService {
   // 3. 확장성
   // 나중에 추가적인 비동기 작업이 필요할 때 쉽게 확장할 수 있습니다
   // 예: 캐싱, 로깅 등의 비동기 작업 추가
-  async getNoticeList(searchData: ReqNoticeSearchDto): Promise<TbNotice[]> {
+  async getNoticeList(searchData: ReqNoticeSearchDto): Promise<any[]> {
     try {
       const queryBuilder = this.noticeRepository
-        .createQueryBuilder()
+        .createQueryBuilder('notice')
         .select([
-          'TbNotice.noticeId',
-          'TbNotice.loginId',
-          'TbNotice.noticeTitle',
-          'TbNotice.noticeContent',
-          'TbNotice.noticeRegDate',
+          'notice.noticeId as noticeId',
+          'notice.noticeTitle as noticeTitle',
+          'notice.noticeContent as noticeContent',
+          'notice.noticeRegDate as noticeRegDate',
+          'user.loginId as loginId',
         ])
-        .orderBy('TbNotice.noticeRegDate', 'DESC')
-        .skip((searchData.currentPage - 1) * searchData.pageSize)
-        .take(searchData.pageSize);
+        .orderBy('notice.noticeId', 'DESC')
+        .leftJoin('notice.login', 'user')
+        .offset((searchData.currentPage - 1) * searchData.pageSize)
+        .limit(searchData.pageSize);
 
       // 검색 조건 적용
       if (searchData) {
         if (searchData.searchTitle?.trim()) {
-          queryBuilder.andWhere('noticeTitle LIKE :title', {
+          queryBuilder.andWhere('notice.noticeTitle LIKE :title', {
             title: `%${searchData.searchTitle}%`,
           });
         }
 
         if (searchData.searchStDate?.trim()) {
-          queryBuilder.andWhere('DATE(noticeRegDate) >= :startDate', {
+          queryBuilder.andWhere('DATE(notice.noticeRegDate) >= :startDate', {
             startDate: searchData.searchStDate,
           });
         }
 
         if (searchData.searchEdDate?.trim()) {
-          queryBuilder.andWhere('DATE(noticeRegDate) <= :endDate', {
+          queryBuilder.andWhere('DATE(notice.noticeRegDate) <= :endDate', {
             endDate: searchData.searchEdDate,
           });
         }
       }
 
-      return await queryBuilder.getMany();
+      return await queryBuilder.getRawMany();
     } catch (error) {
       throw new InternalServerErrorException(
         `공지사항 조회 중 오류가 발생했습니다. ${error}`,
@@ -87,25 +89,25 @@ export class NoticeService {
   async getNoticeCount(searchData: ReqNoticeSearchDto): Promise<number> {
     try {
       const queryBuilder = this.noticeRepository
-        .createQueryBuilder()
-        .select(['TbNotice.noticeId']);
+        .createQueryBuilder('notice')
+        .select(['notice.noticeId']);
 
       // 검색 조건 적용
       if (searchData) {
         if (searchData.searchTitle?.trim()) {
-          queryBuilder.andWhere('TbNotice.noticeTitle LIKE :title', {
+          queryBuilder.andWhere('notice.noticeTitle LIKE :title', {
             title: `%${searchData.searchTitle}%`,
           });
         }
 
         if (searchData.searchStDate?.trim()) {
-          queryBuilder.andWhere('DATE(TbNotice.noticeRegDate) >= :startDate', {
+          queryBuilder.andWhere('DATE(notice.noticeRegDate) >= :startDate', {
             startDate: searchData.searchStDate,
           });
         }
 
         if (searchData.searchEdDate?.trim()) {
-          queryBuilder.andWhere('DATE(TbNotice.noticeRegDate) <= :endDate', {
+          queryBuilder.andWhere('DATE(notice.noticeRegDate) <= :endDate', {
             endDate: searchData.searchEdDate,
           });
         }

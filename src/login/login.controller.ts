@@ -28,21 +28,6 @@ export class LoginController {
     };
   }
 
-  @Post('me')
-  getMe(@Req() req: Request) {
-    this.logger.log(`현재 사용자 확인: ${JSON.stringify(req.user)}`);
-    if (req.isAuthenticated && req.isAuthenticated()) {
-      return {
-        result: 'AUTHORIZED',
-        user: req.user,
-      };
-    } else {
-      return {
-        result: 'UNAUTHORIZED',
-      };
-    }
-  }
-
   // 세션 디버깅용 엔드포인트 추가
   @Get('debug-session')
   debugSession(@Req() req: Request) {

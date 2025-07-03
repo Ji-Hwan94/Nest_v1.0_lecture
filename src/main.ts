@@ -3,6 +3,8 @@ import { AppModule } from './app.module';
 import * as session from 'express-session';
 import * as passport from 'passport';
 import * as dotenv from 'dotenv';
+import { RedisStore } from 'connect-redis';
+import { createClient } from 'redis';
 
 // HMR(Hot Module Replacement) 지원을 위한 선언
 // 개발 중 코드 변경 시 서버를 완전히 재시작하지 않고도 변경사항을 반영
@@ -19,13 +21,27 @@ async function bootstrap() {
     throw new Error('SESSION_KEY 환경변수가 설정되지 않았습니다!');
   }
 
+  // Redis 클라이언트 생성
+  const redisClient = createClient({
+    socket: {
+      host: process.env.REDIS_HOST || 'localhost',
+      port: process.env.REDIS_PORT ? Number(process.env.REDIS_PORT) : 6379,
+    },
+    password: process.env.REDIS_PASSWORD || undefined,
+  });
+  // connect-redis v6 이상에서 필요
+  // @ts-ignore
+  redisClient.on &&
+    redisClient.on('error', (err) => console.error('Redis Client Error', err));
+  await redisClient.connect();
+
   // NestJS 앱 생성
   const app = await NestFactory.create(AppModule);
 
-  // express-session 미들웨어 등록
-  // 세션 쿠키는 브라우저에 세션ID만 저장, 실제 정보는 서버 메모리에 저장
+  // express-session 미들웨어 등록 (RedisStore 적용)
   app.use(
     session({
+      store: new RedisStore({ client: redisClient }),
       secret: process.env.SESSION_KEY, // 세션 암호화 키
       resave: true, // 세션 데이터가 바뀌지 않아도 항상 저장(세션 만료 갱신)
       saveUninitialized: false, // 로그인 등 세션에 값이 있을 때만 저장
