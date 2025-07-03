@@ -25,6 +25,10 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { FileDto } from 'src/domain/common/dto/common.file.dto';
 
+interface AuthRequest extends Request {
+  user?: any;
+}
+
 @Controller('/support/')
 export class NoticeController {
   constructor(private readonly noticeService: NoticeService) {}
@@ -60,7 +64,7 @@ export class NoticeController {
   async create(
     @Body() insertParam: ReqNoticeTextDto,
     @UploadedFile() file: FileDto,
-    @Req() req,
+    @Req() req: AuthRequest,
   ) {
     // 로그인 정보가 없으면 예외 처리
     if (!req.user || !req.user['loginId']) {
