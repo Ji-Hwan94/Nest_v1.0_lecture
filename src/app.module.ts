@@ -1,7 +1,6 @@
 import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { LoginModule } from './login/login.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
 import { ServeStaticModule } from '@nestjs/serve-static';
@@ -12,6 +11,7 @@ import {
 } from './middlewares';
 import { NoticeModule } from './domain/support/notice/notice.module';
 import { FileModule } from './common/file/file.module';
+import { LoginModule } from './domain/login/login.module';
 
 @Module({
   imports: [
@@ -30,7 +30,6 @@ import { FileModule } from './common/file/file.module';
         },
       },
     }),
-    LoginModule,
     TypeOrmModule.forRoot({
       type: 'mysql',
       host: process.env.DB_HOST,
@@ -45,6 +44,8 @@ import { FileModule } from './common/file/file.module';
       charset: 'utf8mb4',
       autoLoadEntities: true,
     }),
+    // 모듈 추가
+    LoginModule,
     NoticeModule,
     FileModule,
   ],
